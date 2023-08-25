@@ -23,29 +23,36 @@ class VkAPI():
             'album_id': 'profile',
             'extended': '1',
             'photo_size': '1',
+            'count': '5',
             'v': 5.131
         }
-        response = requests.get(f'{self.url_method}/photos.get?{urlencode(params)}').json()
-        return response
+        try:
+            response = requests.get(f'{self.url_method}/photos.get?{urlencode(params)}').json()
+            return response["response"]['items']
+        except KeyError:
+            return f'Такого пользователя с ID {self.id} не существует.'
     
     def max_size_photo(self):
         """
         Нахождения максимального размера фотография и записаь его в json файл.
         """
-        name_size = {}
-        try:
-            for i in [n for n in self.photo_get()["response"]['items']]:
-                if i['likes']['count'] in name_size.keys():
-                    name_size[i['date']] = (list(reversed(i['sizes']))[0])
-                else:
-                    name_size[i['likes']['count']] = (list(reversed(i['sizes']))[0])
-            json_dump = [{'file_name': f"{i}.jpg", 'size': o['type']} for i, o in name_size.items()]
-            json_dumps = json.dumps(json_dump, indent=4)
-            with open('data.json', 'w') as file:
-                file.write(json_dumps)
-        except KeyError:
-            return f'Такого пользователя с ID {self.id} не существует.'
-        return name_size
+        responses = self.photo_get()
+        data = []
+        photo_name = []
+
+        for i in responses:
+            max_size = i['sizes'][-1]
+            name = i['likes']['count']
+            if name in photo_name:
+                name = f"{i['likes']['count']}_{i['date']}"
+            photo_name.append(name)
+            url = max_size['url']
+            type = max_size['type']
+            data.append({'name': name, 'url': url, 'type': type})
+        json_dump = [{'file_name': f"{i['name']}.jpg", 'size': i['type']} for i in data]
+        with open('data.json', 'w') as file:
+            json.dump(json_dump, file, indent=4)
+        return data
 
 class YaDiskAPI(VkAPI):
 
@@ -70,13 +77,14 @@ class YaDiskAPI(VkAPI):
         """
         self.create_file()
         headers_ya = {'Authorization': f'OAuth {self.poligon_ya}'}
-        for likes, url in tqdm(self.max_size_photo().items(), desc='Загружаем фотографии', ncols=80, colour='#00FF00'):
-            params_ya = {'url': url['url'], 'path': f"Your photo's/{likes}.jpg"}
+        for i in tqdm(self.max_size_photo(), desc='Загружаем фотографии', ncols=80, colour='#00FF00'):
+            params_ya = {'url': i['url'], 'path': f"Your photo's/{i['name']}.jpg"}
             requests.post(f"{self.url_ya}/upload?{urlencode(params_ya)}", headers=headers_ya).json()
-            time.sleep(0.5)
+            time.sleep(0.3)
         return 'Загрузка завершена.'
     
     
 
 people_1 = YaDiskAPI(poligon_ya=input('Введите токен из полигона яндекс диска: '), id=input('Введите id вашей страницы в Вконтакте: '))
 print(people_1.upload_files())
+
