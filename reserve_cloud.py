@@ -3,6 +3,7 @@ import requests
 import json
 import time
 from tqdm import tqdm
+import sys
 
 class VkAPI():
 
@@ -10,12 +11,16 @@ class VkAPI():
     url_method = 'https://api.vk.com/method'
 
     def __init__(self, id):
-        self.id = id
+        self.id = int(id)
 
     def photo_get(self):
         """
         Получение доступа к фотографиям пользователя ВК.
+        Проверка валидности ID и его размер.
         """
+        if self.id >= 1900000000:
+            print('Маскимальный размер ID 1.899.999.999.')
+            sys.exit()
 
         params = {
             'access_token': self.token,
@@ -30,7 +35,8 @@ class VkAPI():
             response = requests.get(f'{self.url_method}/photos.get?{urlencode(params)}').json()
             return response["response"]['items']
         except KeyError:
-            return f'Такого пользователя с ID {self.id} не существует.'
+            print(f'Такого пользователя с ID {self.id} не существует.')
+            sys.exit()
     
     def max_size_photo(self):
         """
@@ -39,7 +45,6 @@ class VkAPI():
         responses = self.photo_get()
         data = []
         photo_name = []
-
         for i in responses:
             max_size = i['sizes'][-1]
             name = i['likes']['count']
@@ -52,7 +57,7 @@ class VkAPI():
         json_dump = [{'file_name': f"{i['name']}.jpg", 'size': i['type']} for i in data]
         with open('data.json', 'w') as file:
             json.dump(json_dump, file, indent=4)
-        return data
+        return data       
 
 class YaDiskAPI(VkAPI):
 
@@ -83,8 +88,6 @@ class YaDiskAPI(VkAPI):
             time.sleep(0.3)
         return 'Загрузка завершена.'
     
-    
-
-people_1 = YaDiskAPI(poligon_ya=input('Введите токен из полигона яндекс диска: '), id=input('Введите id вашей страницы в Вконтакте: '))
+people_1 = YaDiskAPI(poligon_ya=input('Введите токен из полигона яндекс диска: '), id=input('Введите id вашей страницы в Вконтакте: '))    
 print(people_1.upload_files())
 
